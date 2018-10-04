@@ -1,0 +1,24 @@
+- parcelles:
+    titre: stades
+    color_scheme: green
+    commune: 75116
+    numero:
+        - AX0003
+        - AW0001        
+        - AU0011        
+
+- parcelles:
+    titre: piscine
+    color_scheme: blue
+    commune: 75116
+    numero:
+        - AX0001
+
+- communes:
+    - 75116
+
+- lieux-dits:
+    commune: 92051
+    nom:
+        - ILE DE LA GRANDE JATTE
+ 
