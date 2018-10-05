@@ -141,7 +141,16 @@ class Parcelles:
         """
         ncolor = 0
 
-        if color_scheme == "red":
+        if color_scheme is None:
+            color_scheme = "all"
+
+        if re.match(r'[0-9a-f]{6,8}', color_scheme, re.I):
+            # couleur spécifiée
+            colors = [color_scheme]
+        elif re.match(r'#[0-9a-f]{6}', color_scheme, re.I):
+            # couleur spécifiée
+            colors = ['99' + color_scheme[5:7] + color_scheme[3:5] + color_scheme[1:3]]
+        elif color_scheme == "red":
             colors = ['99{:02x}{:02x}ff'.format(max(0, 64 * i - 1), max(0, 64 * i - 1)) for i in range(3)]
         elif color_scheme == "green":
             colors = ['99{:02x}ff{:02x}'.format(max(0, 64 * i - 1), max(0, 64 * i - 1)) for i in range(3)]
@@ -296,7 +305,7 @@ def main():
                 elif k == 'parcelles':
                     zz = kml.newfolder(name=v.get('titre', 'Parcelles'))
                     c = Parcelles(parser, [','.join(i.split()) for i in v['numero']], v.get('commune'))
-                    c.to_kml(zz, v['color_scheme'])
+                    c.to_kml(zz, v.get('couleur'))
 
                 elif k == 'lieux-dits':
                     zz = kml.newfolder(name='Lieux-Dits')
