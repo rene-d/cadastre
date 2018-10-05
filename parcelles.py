@@ -55,6 +55,9 @@ def get_geojson(commune, source="parcelles"):
 
 
 def add_feature(kml, feature, color, name=None):
+    """
+    ajoute à un kml un polygone rempli à partir d'une feature GeoJSON
+    """
 
     if not name:
         name = feature['id']
@@ -75,7 +78,9 @@ def add_feature(kml, feature, color, name=None):
 
 def add_feature_contour(kml, feature, color, name=None):
     """
+    ajoute à un kml un polygone (non rempli) à partir d'une feature GeoJSON
     """
+
     if not name:
         name = feature['id']
 
@@ -95,10 +100,14 @@ def add_feature_contour(kml, feature, color, name=None):
 
 class Parcelles:
     """
+    gestion du fichier parcelles du PCI
     """
 
     def __init__(self, parser, args, commune_courante=None):
         """
+        initialise la liste des parcelles
+        chaque numéro peut contenir le code commune et le préfixe (qui deviendront les valeurs par défaut)
+        obligatoire: section et numéro de plan
         """
         self.parcelles = defaultdict(lambda: [])
         if not args:
@@ -127,6 +136,8 @@ class Parcelles:
 
     def to_kml(self, kml, color_scheme="all"):
         """
+        ajoute le dessin des parcelles à un kml
+        color_scheme : méthode pour affecter des couleurs
         """
         ncolor = 0
 
@@ -160,10 +171,12 @@ class Parcelles:
 
 class Communes:
     """
+    gestion du fichier communes du PCI
     """
 
     def __init__(self, parser, communes):
         """
+        initialise la liste des communes (avec le code commune)
         """
         self.communes = set()
         if not communes:
@@ -177,6 +190,7 @@ class Communes:
 
     def to_kml(self, kml):
         """
+        ajoute le contour des communes sélectionnées au kml, trait vert
         """
         for commune in self.communes:
             data = get_geojson(commune, "communes")
@@ -189,6 +203,7 @@ class Communes:
 
 class LieuxDits:
     """
+    gestion du fichier lieux_dits du PCI
     """
 
     def __init__(self, parser, args, commune_courante=None):
@@ -216,6 +231,7 @@ class LieuxDits:
 
     def to_kml(self, kml):
         """
+        ajoute le contour des lieux-dits sélectionnés au kml, trait rouge
         """
         for commune, liste_id in self.parcelles.items():
             data = get_geojson(commune, "lieux_dits")
@@ -240,7 +256,7 @@ def main():
     parser.add_argument('-p', '--parcelle', action='append', help="Parcelle ou liste")
     parser.add_argument('-c', '--commune', action='append', help="Commune")
     parser.add_argument('-l', '--lieu-dit', action='append', help="Lieu-dit ou liste")
-    parser.add_argument('-f', '--file', help="Fichier de configuration")
+    parser.add_argument('-f', '--file', action='append', help="Fichier de configuration")
     parser.add_argument('-n', '--dry-run', help="Ne fait rien", action="store_true")
 
     args = parser.parse_args()
@@ -249,12 +265,15 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
         logging.debug(args)
 
+    # vérifie l'extension du fichier de sortie
     _, ext = os.path.splitext(args.output)
     if ext != '' and ext != '.kml' and ext != '.kmz':
         parser.error("Extension inconnue: %s" % args.output)
 
+    # création en mémoire du document kml
     kml = simplekml.Kml()
 
+    # ajoute les parcelles, communes, lieux-dits
     parcelles = Parcelles(parser, args.parcelle)
     parcelles.to_kml(kml)
 
@@ -264,8 +283,9 @@ def main():
     lieux_dits = LieuxDits(parser, args.lieu_dit)
     lieux_dits.to_kml(kml)
 
-    if args.file:
-        conf = yaml.load(open(args.file))
+    # si on a donné un ou plusieurs fichiers de configuration
+    for file in args.file:
+        conf = yaml.load(open(file))
         for kv in conf:
             for k, v in kv.items():
                 if k == 'communes':
@@ -283,6 +303,7 @@ def main():
                     c = LieuxDits(parser, v['nom'], v.get('commune'))
                     c.to_kml(zz)
 
+    # crée le fichier de sortie, en kml ou kmz
     if not args.dry_run:
         if ext == '':
             kml.save(f"{args.output}.kml")

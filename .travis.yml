@@ -1,0 +1,18 @@
+os: linux
+
+dist: trusty
+
+sudo: false
+
+language: python
+
+python:
+  - 3.6
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  -  ./parcelles.py -f demo.yaml
+  - ./fantoir.py fantoir_demo.zip
+  - flake8 --ignore=E201,E501

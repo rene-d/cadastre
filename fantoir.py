@@ -21,13 +21,27 @@ try:
     from tqdm import tqdm
 except ImportError:
     print("Pour afficher la progression: pip3 install tqdm")
+
     def tqdm(it, *args, **kwargs):
         return it
 
 
 #
-# description des champs du fichier
+# description du fichier FANTOIR
 #
+
+# le fichier fantoir est une suite de lignes texte, avec un enregistement par ligne
+#   initial
+#     direction
+#       commune
+#          voie
+#          voie
+#          ...
+#       commune
+#          voie
+#          ...
+#     ...
+#   final
 
 FILLER = '_ '
 FILLER_NULL = '_\0'
@@ -106,11 +120,11 @@ enregistrement_voie = [
 
 ]
 
-enregistrement_fin = [
-    "fin",
+enregistrement_final = [
+    "final",
     [ 10, FILLER_9, '9999999999'],
     [  1, FILLER],
-    [ 21, FILLER_ANY, '804187810937057800471'],    # non documenté, valeurs inconnues
+    [ 21, 'inconnu', '804187810937057800471'],    # non documenté, valeurs inconnues
     [118, FILLER_0, '0']
 ]
 
@@ -183,12 +197,12 @@ def fantoir(archive):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('archive', nargs='?', metavar='FANTOIR', help="Archive de situation")
+    parser.add_argument('archive', nargs='?', metavar='FANTOIR', help="Fichier national FANTOIR (archive)")
     args = parser.parse_args()
 
     if args.archive is None:
         z = glob.glob('FANTOIR*.zip')
-        if len(z) == 0:
+        if len(z) != 1:
             parser.print_help()
             exit(2)
         args.archive = z[0]
@@ -197,22 +211,20 @@ def main():
         os.unlink("fantoir.sqlite")
     db = sqlite3.connect("fantoir.sqlite")
 
-    enregistrements = [enregistrement_initial, enregistrement_direction, enregistrement_commune, enregistrement_voie]
+    enregistrements = [enregistrement_final,
+                       enregistrement_initial,
+                       enregistrement_direction,
+                       enregistrement_commune,
+                       enregistrement_voie]
 
     for e in enregistrements:
         create(db, e)
 
-    cur = db.cursor()
-    i = 0
-    n = 0
+    i = 1           # on commence par l'enregistrement initial
+    n = 0           # compteur de ligne
 
     for line in tqdm(fantoir(args.archive), unit=" lignes", desc=args.archive):
         n += 1
-
-        # print(len(line), line)
-
-        if line.startswith(b'9999999999'):
-            break
 
         assert line[-2:] == b'\r\n'
         line = line[:-2]
@@ -220,15 +232,16 @@ def main():
         while True:
             row = decode(enregistrements[i], line)
             if row:
-                # print(enregistrements[i][0], row)
-
                 # les enregistrements direction et commune ont la même longueur
                 if enregistrements[i][0] == 'commune':
                     if row['code_comm'] == '':
                         i -= 1
                         continue
 
-                insert(cur, enregistrements[i], row, n)
+                # le décodeur courant fonctionne: on ajoute l'enregistrement à la base de données
+                insert(db, enregistrements[i], row, n)
+
+                # on passe au décodeur suivant
                 if i < len(enregistrements) - 1:
                     i += 1
                 break
@@ -239,7 +252,13 @@ def main():
         if n % 10000 == 0:
             db.commit()
 
-    cur.close()
+    db.commit()
+
+    print("{} lignes lues".format(n))
+    for fields in enregistrements:
+        count = db.execute('select count(*) from ' + fields[0]).fetchone()[0]
+        print("  {:<10} : {:>10}".format(fields[0], count))
+
     db.close()
 
 

@@ -2,3 +2,4 @@ pyaml
 simplekml
 requests-cache
 tqdm
+flake8
