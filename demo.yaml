@@ -1,24 +1,27 @@
-- parcelles:
-    titre: stades
-    color_scheme: green
-    commune: 75116
-    numero:
-        - AX0003
-        - AW0001        
-        - AU0011        
+titre: Démo de parcelles.py
 
-- parcelles:
-    titre: piscine
-    color_scheme: blue
-    commune: 75116
-    numero:
-        - AX0001
+donnees:
+    - parcelles:
+        titre: stades
+        couleur: green          # nuances de vert
+        commune: 75116
+        numero:
+            - AX0003
+            - AW0001
+            - AU0011
 
-- communes:
-    - 75116
+    - parcelles:
+        titre: piscine
+        couleur: 99ff0000       # bleu transparent
+        commune: 75116
+        numero:
+            - AX0001
 
-- lieux-dits:
-    commune: 92051
-    nom:
-        - ILE DE LA GRANDE JATTE
- 
+    - communes:
+        - 75116                 # Paris 16e
+        - 92051                 # Neuilly-sur-Seine
+
+    - lieux-dits:               # les lieux-dits de Neuilly et Levallois
+        commune: 92051          # => Ile de la Jatte
+    - lieux-dits:
+        commune: 92044

@@ -2,6 +2,21 @@
 Outils pour exploiter le Plan Cadastral Informatisé
 
 
+## Outils
+
+### fantoir.py
+
+
+### parcelles.py
+
+
+#### Description du fichier .yaml
+
+couleur:
+* _hexBinary value: aabbggrr_  cf. [\<color>](https://developers.google.com/kml/documentation/kmlreference#colorstyle)
+* #rrggbb
+* red, blue, green : différentes teintes de la couleur mentionnée
+* all : alternance de teintes de rouge, bleu, vert
 
 
 ## Notes
