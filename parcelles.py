@@ -54,9 +54,29 @@ def get_geojson(commune, source="parcelles"):
             logging.error("Impossible d'analyser le contenu GeoJSON: {}".format(e))
 
 
+def check_uniqueness(kml, id):
+    """
+    vérifie l'unicité des id des objets ajoutés au kml
+    si on a activé l'option
+    """
+    try:
+        doc = kml.document
+    except AttributeError:
+        doc = kml._parent
+    while not isinstance(doc, simplekml.Document) and doc._parent:
+        doc = doc._parent
+    if isinstance(doc.unique_ids, set):
+        if id in doc.unique_ids:
+            logging.debug("doublon: %s", id)
+            # print("doublon: %s" % id)
+            return False
+        doc.unique_ids.add(id)
+    return True
+
+
 def add_feature(kml, feature, color, name=None):
     """
-    ajoute à un kml un polygone rempli à partir d'une feature GeoJSON
+    ajoute un polygone rempli à un kml à partir d'une feature GeoJSON
     """
 
     if not name:
@@ -78,7 +98,7 @@ def add_feature(kml, feature, color, name=None):
 
 def add_feature_contour(kml, feature, color, name=None):
     """
-    ajoute à un kml un polygone (non rempli) à partir d'une feature GeoJSON
+    ajoute un contour de polygone non rempli à un kml à partir d'une feature GeoJSON
     """
 
     if not name:
@@ -145,18 +165,22 @@ class Parcelles:
             color_scheme = "all"
 
         if re.match(r'[0-9a-f]{6,8}', color_scheme, re.I):
-            # couleur spécifiée
+            # couleur spécifiée au format KML 'aabbggrr'
             colors = [color_scheme]
         elif re.match(r'#[0-9a-f]{6}', color_scheme, re.I):
-            # couleur spécifiée
+            # couleur spécifiée au format Web '#rrggbb'
             colors = ['99' + color_scheme[5:7] + color_scheme[3:5] + color_scheme[1:3]]
         elif color_scheme == "red":
+            # nuances de rouge
             colors = ['99{:02x}{:02x}ff'.format(max(0, 64 * i - 1), max(0, 64 * i - 1)) for i in range(3)]
         elif color_scheme == "green":
+            # nuances de vert
             colors = ['99{:02x}ff{:02x}'.format(max(0, 64 * i - 1), max(0, 64 * i - 1)) for i in range(3)]
         elif color_scheme == "blue":
+            # nuances de bleu
             colors = ['99ff{:02x}{:02x}'.format(max(0, 64 * i - 1), max(0, 64 * i - 1)) for i in range(3)]
         else:
+            # alternance de couleurs
             colors = ['990000ff',  # Transparent red
                       '9900ff00',
                       '99ff0000',
@@ -170,10 +194,9 @@ class Parcelles:
             for feature in data['features']:
                 properties = feature['properties']
                 for id in liste_id:
-                    if properties['id'] == id:
+                    if properties['id'] == id and check_uniqueness(kml, id):
+                        logging.debug(properties)
                         print("parcelle {id} :  taille {contenance:>10}  créée {created}, mise à jour {updated}".format(**properties))
-                        logging.debug(feature['properties'])
-
                         add_feature(kml, feature, colors[ncolor % len(colors)])
                         ncolor += 1
 
@@ -205,9 +228,11 @@ class Communes:
             data = get_geojson(commune, "communes")
 
             for feature in data['features']:
-                properties = feature['properties']
-                print("commune {id} : nom {nom}  créée {created}, mise à jour {updated}".format(**properties))
-                add_feature_contour(kml, feature, 'ff2fff2f')
+                if check_uniqueness(kml, feature['id']):
+                    properties = feature['properties']
+                    logging.debug(properties)
+                    print("commune {id} : nom {nom}  créée {created}, mise à jour {updated}".format(**properties))
+                    add_feature_contour(kml, feature, 'ff2fff2f')
 
 
 class LieuxDits:
@@ -220,10 +245,12 @@ class LieuxDits:
         """
         self.parcelles = defaultdict(lambda: [])
         if not args:
-            return
+            if not commune_courante:
+                return
+            args = ['*']
         for p1 in args:
             for p2 in p1.upper().split(','):
-                m = re.match(r"(\d[\dAB]\d{3}:)?([A-Z.\-'_ ]+|\*)", p2)
+                m = re.match(r"(\d[\dAB]\d{3})?:?([A-Z.\-'_ ]+|\*)?", p2)
                 if not m:
                     parser.error("Mauvais id de parcelle: %s" % p2)
                     continue
@@ -231,12 +258,12 @@ class LieuxDits:
                 if not commune:
                     commune = commune_courante
                 else:
-                    commune_courante = commune[:-1]
+                    commune_courante = commune
                 if not commune_courante:
                     # on ne peut rien faire tant qu'on n'a pas défini de commune
                     parser.error("Lieu-dit sans commune: %s", p2)
                     continue
-                self.parcelles[commune_courante].append(lieu_dit)
+                self.parcelles[commune_courante].append(lieu_dit or "*")
 
     def to_kml(self, kml):
         """
@@ -244,14 +271,20 @@ class LieuxDits:
         """
         for commune, liste_id in self.parcelles.items():
             data = get_geojson(commune, "lieux_dits")
+            if not data:
+                # pas de lieux-dits
+                return
 
             for feature in data['features']:
                 properties = feature['properties']
-                for nom in liste_id:
-                    if nom == '*' or properties['nom'].upper() == nom:
-                        properties = feature['properties']
-                        print("lieu-dit {nom} : commune {commune}  créée {created}, mise à jour {updated}".format(**properties))
-                        add_feature_contour(kml, feature, 'ff1522fc', properties['nom'] or '??')
+                for id in liste_id:
+                    if id == '*' or properties['nom'].upper() == id:
+                        name = properties['nom'] or '??'
+                        if check_uniqueness(kml, name):
+                            properties = feature['properties']
+                            logging.debug(properties)
+                            print("lieu-dit {nom} : commune {commune}  créée {created}, mise à jour {updated}".format(**properties))
+                            add_feature_contour(kml, feature, 'ff1522fc', name)
 
 
 def main():
@@ -267,6 +300,7 @@ def main():
     parser.add_argument('-l', '--lieu-dit', action='append', help="Lieu-dit ou liste")
     parser.add_argument('-f', '--file', action='append', help="Fichier de configuration")
     parser.add_argument('-n', '--dry-run', help="Ne fait rien", action="store_true")
+    parser.add_argument('-u', '--unique', help="N'ajoute qu'une fois les objets", action="store_true")
 
     args = parser.parse_args()
 
@@ -281,6 +315,10 @@ def main():
 
     # création en mémoire du document kml
     kml = simplekml.Kml()
+    if args.unique:
+        kml.document.unique_ids = set()
+    else:
+        kml.document.unique_ids = None
 
     # ajoute les parcelles, communes, lieux-dits
     parcelles = Parcelles(parser, args.parcelle)
@@ -293,8 +331,13 @@ def main():
     lieux_dits.to_kml(kml)
 
     # si on a donné un ou plusieurs fichiers de configuration
-    for file in args.file:
+    for file in args.file or []:
         conf = yaml.load(open(file))
+        if 'titre' in conf:
+            print('--', conf['titre'], '--')
+        if 'donnees' in conf:
+            conf = conf['donnees']
+
         for kv in conf:
             for k, v in kv.items():
                 if k == 'communes':
@@ -309,7 +352,7 @@ def main():
 
                 elif k == 'lieux-dits':
                     zz = kml.newfolder(name='Lieux-Dits')
-                    c = LieuxDits(parser, v['nom'], v.get('commune'))
+                    c = LieuxDits(parser, v.get('nom'), v.get('commune'))
                     c.to_kml(zz)
 
     # crée le fichier de sortie, en kml ou kmz

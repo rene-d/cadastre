@@ -4,3 +4,5 @@ cache.sqlite
 fantoir.sqlite
 *.kml
 *.kmz
+
+.vscode/.ropeproject/
