@@ -124,8 +124,8 @@ enregistrement_final = [
     "final",
     [ 10, FILLER_9, '9999999999'],
     [  1, FILLER],
-    [ 21, 'inconnu', '804187810937057800471'],    # non documenté, valeurs inconnues
-    [118, FILLER_0, '0']
+    [ 29, 'inconnu', '80418781093705780047100000000'],    # non documenté, valeurs inconnues
+    [110, FILLER_0, '0']
 ]
 
 
@@ -246,6 +246,9 @@ def main():
                     i += 1
                 break
             else:
+                if i <= 0:
+                    print("problème ligne", i)
+                    print(line)
                 assert i > 0
                 i -= 1
 
